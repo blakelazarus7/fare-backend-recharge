@@ -1,52 +1,72 @@
 export default async function handler(req, res) {
-  console.log("Recharge API Key:", process.env.RECHARGE_API_KEY);
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  const email = req.query.email;
-  if (!email) {
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // DEBUG LOGS
+  console.log("Received request");
+  console.log("Email param:", req.query.email);
+  console.log("Recharge API Key:", process.env.RECHARGE_API_KEY ? "✅ Exists" : "❌ MISSING");
+
+  const RECHARGE_API_KEY = process.env.RECHARGE_API_KEY;
+  const customerEmail = req.query.email;
+
+  if (!customerEmail) {
+    console.log("❌ Missing email param");
     return res.status(400).json({ error: "Email parameter is required" });
   }
 
-  const RECHARGE_API_KEY = process.env.RECHARGE_API_KEY;
-
   try {
-    const customerResp = await fetch(
-      `https://api.rechargeapps.com/customers?email=${encodeURIComponent(email)}`,
-      {
-        headers: {
-          "X-Recharge-Access-Token": RECHARGE_API_KEY,
-          Accept: "application/json",
-        },
+    // Lookup customer by email
+    const customerResp = await fetch(`https://api.rechargeapps.com/customers?email=${encodeURIComponent(customerEmail)}`, {
+      headers: {
+        "X-Recharge-Access-Token": RECHARGE_API_KEY,
+        "Accept": "application/json"
       }
-    );
+    });
 
-    const customerData = await customerResp.json();
-    console.log("Customer data response:", customerData);
+    const customerJson = await customerResp.json();
+    console.log("Customer API Response:", customerJson);
 
-    if (!customerData.customers || customerData.customers.length === 0) {
+    if (!customerJson.customers || customerJson.customers.length === 0) {
+      console.log("❌ Customer not found");
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    const customerId = customerData.customers[0].id;
+    const customerId = customerJson.customers[0].id;
+    console.log("✅ Found customer ID:", customerId);
 
-    const subscriptionsResp = await fetch(
-      `https://api.rechargeapps.com/subscriptions?customer_id=${customerId}`,
-      {
-        headers: {
-          "X-Recharge-Access-Token": RECHARGE_API_KEY,
-          Accept: "application/json",
-        },
+    // Get subscriptions for the customer
+    const subResp = await fetch(`https://api.rechargeapps.com/subscriptions?customer_id=${customerId}`, {
+      headers: {
+        "X-Recharge-Access-Token": RECHARGE_API_KEY,
+        "Accept": "application/json"
       }
-    );
+    });
 
-    const subscriptionsData = await subscriptionsResp.json();
-    console.log("Subscriptions data response:", subscriptionsData);
+    const subJson = await subResp.json();
+    console.log("Subscription API Response:", subJson);
+
+    if (!subJson.subscriptions || subJson.subscriptions.length === 0) {
+      console.log("❌ No subscriptions found");
+      return res.status(404).json({ error: "No subscriptions found" });
+    }
+
+    const sub = subJson.subscriptions[0];
+    console.log("✅ Subscription found:", sub);
 
     return res.status(200).json({
-      customerId,
-      subscriptions: subscriptionsData.subscriptions || [],
+      plan: sub.order_interval_unit ? `${sub.order_interval_frequency} ${sub.order_interval_unit}` : null,
+      product_title: sub.product_title || null
     });
+
   } catch (err) {
-    console.error("Error fetching data:", err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error("❌ Unexpected error:", err);
+    return res.status(500).json({ error: "Something went wrong", details: err.message });
   }
 }
