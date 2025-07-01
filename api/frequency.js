@@ -7,20 +7,20 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const RECHARGE_API_KEY = "sk_1x1_0bc7238081fd2551589cd28681857647706b8567150b3936df8dcfa59f5d9fb6";
-  const shopifyCustomerId = "201072424"; // hardcoded Shopify ID for now
+  const RECHARGE_API_KEY = "sk_1x1_0bc7238081fd2551589cd28681857647706b8567150b3936df8dcfa59f5d9fb6"; // ✅ YOUR WORKING KEY
+  const customerEmail = req.query.email;
+
+  if (!customerEmail) {
+    return res.status(400).json({ error: "Email parameter is required" });
+  }
 
   try {
-    // 1. Get customer by Shopify ID
-    const customerResp = await fetch(
-      `https://api.rechargeapps.com/api/v1/customers?shopify_customer_id=${shopifyCustomerId}`,
-      {
-        headers: {
-          "X-Recharge-Access-Token": RECHARGE_API_KEY,
-          "Accept": "application/json"
-        }
+    const customerResp = await fetch(`https://api.rechargeapps.com/customers?email=${encodeURIComponent(customerEmail)}`, {
+      headers: {
+        "X-Recharge-Access-Token": RECHARGE_API_KEY,
+        "Accept": "application/json"
       }
-    );
+    });
 
     const customerData = await customerResp.json();
 
@@ -30,31 +30,27 @@ export default async function handler(req, res) {
 
     const customerId = customerData.customers[0].id;
 
-    // 2. Get subscriptions for that customer
-    const subsResp = await fetch(
-      `https://api.rechargeapps.com/api/v1/subscriptions?customer_id=${customerId}`,
-      {
-        headers: {
-          "X-Recharge-Access-Token": RECHARGE_API_KEY,
-          "Accept": "application/json"
-        }
+    const subsResp = await fetch(`https://api.rechargeapps.com/subscriptions?customer_id=${customerId}`, {
+      headers: {
+        "X-Recharge-Access-Token": RECHARGE_API_KEY,
+        "Accept": "application/json"
       }
-    );
+    });
 
-    const subData = await subsResp.json();
+    const subsData = await subsResp.json();
 
-    if (!subData.subscriptions || subData.subscriptions.length === 0) {
+    if (!subsData.subscriptions || subsData.subscriptions.length === 0) {
       return res.status(404).json({ error: "No subscriptions found" });
     }
 
-    const sub = subData.subscriptions[0];
+    const sub = subsData.subscriptions[0];
 
     return res.status(200).json({
-      plan: `${sub.order_interval_frequency} ${sub.order_interval_unit}`,
-      product_title: sub.product_title,
-      next_charge_scheduled_at: sub.next_charge_scheduled_at
+      plan: sub.order_interval_unit ? `${sub.order_interval_frequency} ${sub.order_interval_unit}` : null,
+      product_title: sub.product_title || null,
     });
+
   } catch (err) {
-    return res.status(500).json({ error: "Something went wrong", details: err.message });
+    return res.status(500).json({ error: "Server error", details: err.message });
   }
 }
