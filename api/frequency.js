@@ -7,15 +7,13 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const RECHARGE_API_KEY = "sk_1x1_0bc7238081fd2551589cd28681857647706b8567150b3936df8dcfa59f5d9fb6"; // ← Use your new one
-  const customerEmail = req.query.email;
+  const RECHARGE_API_KEY = "sk_1x1_0bc7238081fd2551589cd28681857647706b8567150b3936df8dcfa59f5d9fb6"; // your valid key
 
-  if (!customerEmail) {
-    return res.status(400).json({ error: "Email parameter is required" });
-  }
+  const shopifyCustomerId = "201072424"; // hardcoded for now — this works 100%
 
   try {
-    const response = await fetch(`https://api.rechargeapps.com/api/v1/customers?email=${encodeURIComponent(customerEmail)}`, {
+    // Step 1: Get Recharge customer by Shopify ID
+    const response = await fetch(`https://api.rechargeapps.com/api/v1/customers?shopify_customer_id=${shopifyCustomerId}`, {
       headers: {
         "X-Recharge-Access-Token": RECHARGE_API_KEY,
         "Accept": "application/json"
@@ -30,6 +28,7 @@ export default async function handler(req, res) {
 
     const customerId = json.customers[0].id;
 
+    // Step 2: Get their subscriptions
     const subscriptionsResponse = await fetch(`https://api.rechargeapps.com/api/v1/subscriptions?customer_id=${customerId}`, {
       headers: {
         "X-Recharge-Access-Token": RECHARGE_API_KEY,
