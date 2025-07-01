@@ -17,8 +17,8 @@ export default async function handler(req, res) {
   try {
     const customerResp = await fetch(`https://api.rechargeapps.com/customers?email=${encodeURIComponent(customerEmail)}`, {
       headers: {
-        "X-Recharge-Access-Token": RECHARGE_API_KEY,
-        "Accept": "application/json"
+        Authorization: `Bearer ${RECHARGE_API_KEY}`,
+        Accept: "application/json"
       }
     });
 
@@ -30,27 +30,27 @@ export default async function handler(req, res) {
 
     const customerId = customerData.customers[0].id;
 
-    const subsResp = await fetch(`https://api.rechargeapps.com/subscriptions?customer_id=${customerId}`, {
+    const subscriptionResp = await fetch(`https://api.rechargeapps.com/subscriptions?customer_id=${customerId}`, {
       headers: {
-        "X-Recharge-Access-Token": RECHARGE_API_KEY,
-        "Accept": "application/json"
+        Authorization: `Bearer ${RECHARGE_API_KEY}`,
+        Accept: "application/json"
       }
     });
 
-    const subsData = await subsResp.json();
+    const subData = await subscriptionResp.json();
 
-    if (!subsData.subscriptions || subsData.subscriptions.length === 0) {
+    if (!subData.subscriptions || subData.subscriptions.length === 0) {
       return res.status(404).json({ error: "No subscriptions found" });
     }
 
-    const sub = subsData.subscriptions[0];
+    const sub = subData.subscriptions[0];
 
     return res.status(200).json({
-      plan: sub.order_interval_unit ? `${sub.order_interval_frequency} ${sub.order_interval_unit}` : null,
-      product_title: sub.product_title || null,
+      plan: `${sub.order_interval_frequency} ${sub.order_interval_unit}`,
+      product_title: sub.product_title
     });
 
   } catch (err) {
-    return res.status(500).json({ error: "Server error", details: err.message });
+    return res.status(500).json({ error: "Internal server error", details: err.message });
   }
 }
