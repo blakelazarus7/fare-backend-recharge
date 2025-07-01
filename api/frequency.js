@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const RECHARGE_API_KEY = "sk_1x1_0bc7238081fd2551589cd28681857647706b8567150b3936df8dcfa59f5d9fb6"; // ✅ YOUR WORKING KEY
+  const RECHARGE_API_KEY = process.env.RECHARGE_API_KEY;
   const customerEmail = req.query.email;
 
   if (!customerEmail) {
